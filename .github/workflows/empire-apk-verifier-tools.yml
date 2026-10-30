@@ -1,0 +1,35 @@
+name: Prepare Android APK verification tools
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+      - name: Install current build tools
+        run: |
+          sdkmanager "build-tools;36.0.0"
+      - name: Stage verifier components
+        run: |
+          mkdir -p verify
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" verify/
+          cp "$ANDROID_HOME/build-tools/36.0.0/zipalign" verify/
+          cp "$ANDROID_HOME/build-tools/36.0.0/aapt2" verify/
+          chmod +x verify/zipalign verify/aapt2
+          ls -lh verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-verification-tools
+          path: verify/

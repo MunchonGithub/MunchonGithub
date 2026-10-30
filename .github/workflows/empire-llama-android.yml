@@ -1,0 +1,45 @@
+name: Build EmpireAssistant LFM3-compatible Android engine
+on:
+  push:
+    branches:
+      - empireassistant-lfm3-engine-build
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - name: Fetch pinned upstream llama.cpp
+        run: |
+          git clone --depth 1 --branch b11960 https://github.com/ggml-org/llama.cpp.git llama
+          git -C llama rev-parse HEAD
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+      - name: Install dependencies
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "cmake;3.31.6" "ndk;29.0.13113456"
+      - name: Build AAR (ARM64)
+        working-directory: llama/examples/llama.android
+        run: |
+          sed -i 's/listOf("arm64-v8a", "x86_64")/listOf("arm64-v8a")/' lib/build.gradle.kts
+          chmod +x gradlew
+          ./gradlew :lib:assembleRelease --stacktrace --no-daemon --max-workers=2
+      - name: Archive engine
+        uses: actions/upload-artifact@v4
+        with:
+          name: empireassistant-llama-b11960-android-arm64
+          path: llama/examples/llama.android/lib/build/outputs/aar/*.aar
+          if-no-files-found: error
